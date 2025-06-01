@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Doodle - Sensor de Turbidez</title>
+  <style>
+    body {
+      background: #f0f8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    .doodle {
+      position: relative;
+      width: 400px;
+      height: 200px;
+    }
+
+    .sensor {
+      fill: #a9cce3;
+      stroke: #333;
+      stroke-width: 2;
+    }
+
+    .tube {
+      fill: #444;
+    }
+
+    .screen-text {
+      font-size: 14px;
+      font-family: monospace;
+      font-weight: bold;
+      visibility: hidden;
+    }
+
+    .screen-text.verified {
+      fill: #00ff00;
+    }
+
+    .screen-text.warning {
+      fill: red;
+      visibility: visible;
+    }
+
+    .water {
+      fill: #00f;
+      animation: flow 2s linear forwards;
+    }
+
+    .water.turbid {
+      fill: #220033;
+      animation: flow 2s linear forwards;
+    }
+
+    @keyframes flow {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(480px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="doodle">
+    <svg width="400" height="200" id="sensorSVG" xmlns="http://www.w3.org/2000/svg">
+      <!-- Tubo izquierdo -->
+      <rect x="0" y="90" width="60" height="20" class="tube" />
+      <!-- Tubo derecho -->
+      <rect x="340" y="90" width="60" height="20" class="tube" />
+
+      <!-- Caja del sensor -->
+      <rect x="60" y="60" width="280" height="80" class="sensor" rx="10" ry="10" />
+
+      <!-- Panel solar más realista -->
+      <g id="solarPanel">
+        <!-- Base del panel -->
+        <rect x="60" y="50" width="280" height="10" fill="#0d1a2b" stroke="#111" stroke-width="0.5" />
+      </g>
+
+      <!-- Pantalla LCD tipo 16x2 -->
+      <g id="lcd">
+        <!-- Marco exterior -->
+        <rect x="140" y="85" width="120" height="35" fill="#333" stroke="#222" stroke-width="2" />
+        <!-- Interior de la pantalla -->
+        <rect x="145" y="90" width="110" height="25" fill="#111" stroke="#0f0" stroke-width="0.5" />
+        <!-- Texto -->
+        <text id="screenText" x="200" y="108" text-anchor="middle" class="screen-text verified">Verificado</text>
+        <text id="warningText" x="200" y="108" text-anchor="middle" class="screen-text warning">Cuidado</text>
+      </g>
+
+      <!-- ClipPath para limitar bolitas dentro del tubo derecho -->
+      <clipPath id="clipTubeRight">
+        <rect x="340" y="90" width="60" height="20" />
+      </clipPath>
+
+      <!-- ClipPath para limitar bolitas dentro del tubo izquierdo -->
+      <clipPath id="clipTubeLeft">
+        <rect x="0" y="90" width="60" height="20" />
+      </clipPath>
+    </svg>
+  </div>
+
+  <script>
+    // Crear celdas del panel solar
+    const svgNS = "http://www.w3.org/2000/svg";
+    const panelGroup = document.getElementById("solarPanel");
+    const startX = 62;
+    const startY = 51;
+    const cols = 7;
+    const rows = 2;
+    const cellW = 38;
+    const cellH = 4;
+    const gapX = 2;
+    const gapY = 1;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = document.createElementNS(svgNS, "rect");
+        cell.setAttribute("x", startX + c * (cellW + gapX));
+        cell.setAttribute("y", startY + r * (cellH + gapY));
+        cell.setAttribute("width", cellW);
+        cell.setAttribute("height", cellH);
+        cell.setAttribute("fill", "#1f4e79");
+        cell.setAttribute("stroke", "#cce");
+        cell.setAttribute("stroke-width", "0.3");
+        panelGroup.appendChild(cell);
+      }
+    }
+
+    const svg = document.getElementById("sensorSVG");
+    const screenText = document.getElementById("screenText");
+    const warningText = document.getElementById("warningText");
+
+    let cycleCount = 0; // Contador para controlar cuándo mostrar bolitas turbias
+
+    function showVerified() {
+      warningText.style.visibility = "hidden";
+      screenText.classList.add("verified");
+      screenText.style.visibility = "visible";
+      setTimeout(() => {
+        screenText.style.visibility = "hidden";
+      }, 1000);
+    }
+
+    function showWarning() {
+      screenText.style.visibility = "hidden";
+      warningText.style.visibility = "visible";
+      setTimeout(() => {
+        warningText.style.visibility = "hidden";
+      }, 2000);
+    }
+
+    function createWaterBalls(turbid = false) {
+      // Grupo para tubo derecho
+      const groupRight = document.createElementNS(svgNS, "g");
+      groupRight.setAttribute("class", "water-group");
+      groupRight.setAttribute("clip-path", "url(#clipTubeRight)");
+
+      // Grupo para tubo izquierdo
+      const groupLeft = document.createElementNS(svgNS, "g");
+      groupLeft.setAttribute("class", "water-group");
+      groupLeft.setAttribute("clip-path", "url(#clipTubeLeft)");
+
+      const positions = [0, -40, -80];
+
+      positions.forEach((offset) => {
+        const ballRight = document.createElementNS(svgNS, "circle");
+        ballRight.setAttribute("class", "water" + (turbid ? " turbid" : ""));
+        ballRight.setAttribute("cx", 340 + offset);
+        ballRight.setAttribute("cy", "100");
+        ballRight.setAttribute("r", "5");
+        groupRight.appendChild(ballRight);
+
+        const ballLeft = document.createElementNS(svgNS, "circle");
+        ballLeft.setAttribute("class", "water" + (turbid ? " turbid" : ""));
+        ballLeft.setAttribute("cx", 0 + offset);
+        ballLeft.setAttribute("cy", "100");
+        ballLeft.setAttribute("r", "5");
+        groupLeft.appendChild(ballLeft);
+      });
+
+      svg.appendChild(groupRight);
+      svg.appendChild(groupLeft);
+
+      // Mostrar mensaje según tipo de bolitas
+      if (turbid) {
+        showWarning();
+      } else {
+        setTimeout(() => {
+          showVerified();
+        }, 958);
+      }
+
+      // Eliminar bolitas después de 2s
+      setTimeout(() => {
+        if (svg.contains(groupRight)) svg.removeChild(groupRight);
+        if (svg.contains(groupLeft)) svg.removeChild(groupLeft);
+      }, 2000);
+    }
+
+    function runCycle() {
+      cycleCount++;
+      if (cycleCount % 3 === 0) {
+        // Cada tercera vez, bolitas turbias + mensaje de advertencia
+        createWaterBalls(true);
+      } else {
+        // Bolitas normales
+        createWaterBalls(false);
+      }
+    }
+
+    // Iniciar animación
+    runCycle();
+    setInterval(runCycle, 4000);
+  </script>
+</body>
+</html>
